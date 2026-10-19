@@ -1,7 +1,7 @@
 // fake-sense.js: the same object, with no sensor attached, good enough to demo.
 //
 // Loaded first, so piece.js never reads an empty object. Until the camera is on:
-//   move the mouse across the page: left is far from the screen, right is leaning in
+//   move the mouse across the page: left is a straight face, right is a wide smile
 //   the mouse up and down drives any other signal (your partner's still)
 //   take the mouse out of the window: nobody is there
 //   number keys 1, 2, 3 ... jump to that state (in the order of the table's rows)
@@ -29,9 +29,9 @@
 
   // Signals that jumping to a state sets. Unlisted states only change the name.
   const PRESETS = {
-    nobody: { present: 0, near: 0 },
-    here:   { present: 1, near: 0.3 },
-    near:   { present: 1, near: 0.9 },
+    nobody:  { present: 0, smile: 0 },
+    here:    { present: 1, smile: 0.1 },
+    smiling: { present: 1, smile: 0.9 },
   };
 
   function setState(name) {
@@ -52,9 +52,9 @@
   addEventListener('pointermove', e => {
     if (window.senseLive) return;
     target.present = 1;
-    target.near = e.clientX / innerWidth;
+    target.smile = e.clientX / innerWidth;
     for (const name of window.TABLE.signals) {
-      if (name !== 'present' && name !== 'near') target[name] = 1 - e.clientY / innerHeight;
+      if (name !== 'present' && name !== 'smile') target[name] = 1 - e.clientY / innerHeight;
     }
   });
 
