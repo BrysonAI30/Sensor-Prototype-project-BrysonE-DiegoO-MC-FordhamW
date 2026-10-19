@@ -56,12 +56,33 @@ const SIGNALS = {
   //     };
   //   })(),
   //
-  //   near: result => {
-  //     const face = result.faceLandmarks[0];
-  //     if (!face) return 0;
-  //     const width = Math.abs(face[454].x - face[234].x); // cheek to cheek
-  //     return clamp((width - 0.15) / 0.35);               // 0.15 far ... 0.5 at the screen
-  //   },
+  // Partner's signal goes here (still). Read the face with mainFace(result), not
+  // result.faceLandmarks[0], so both signals look at the same person.
+  //   still: ...
+
+  // near (Bryson): 0 when the face is far or small in the frame, 1 when it is
+  // right up at the screen. See the NEAR_* numbers above to tune it.
+  near: (() => {
+    const recent = [];  // last few raw widths; the middle one ignores a single bad frame
+    let lastSeen = -Infinity;
+    return result => {
+      const face = mainFace(result);
+      if (!face) return null; // nobody in view: keep the last value, let `present` say they left
+      const now = performance.now();
+      if (now - lastSeen > NEAR_GAP) recent.length = 0; // a new visit starts fresh
+      const returning = recent.length === 0;
+      lastSeen = now;
+      recent.push(faceWidth(face));
+      if (recent.length > NEAR_MEDIAN) recent.shift();
+      const width = [...recent].sort((a, b) => a - b)[Math.floor(recent.length / 2)];
+      // Distance is 1 / width, and leaning in is felt as a change in distance, so
+      // measure on a log scale: the same lean moves the number the same amount
+      // whether you start at 1 m or at 50 cm.
+      const value = clamp(Math.log(width / NEAR_FAR) / Math.log(NEAR_CLOSE / NEAR_FAR));
+      if (returning) signals.near = value; // jump to the first reading, then smooth from there
+      return value;
+    };
+  })(),
 };
 
 // One of the 52 scores by name, or 0 when no face is in view.
@@ -76,6 +97,48 @@ function clamp(x) {
   return Math.min(1, Math.max(0, x));
 }
 
+// ---- Shared by both partners: which face is "the" face ------------------------
+// The model looks for two faces so a bystander does not steal the reading by
+// accident. Everything below reads the largest (closest) face in view, and only
+// that one. Use mainFace(result) instead of result.faceLandmarks[0] in your signal.
+
+function mainFace(result) {
+  let best = null;
+  let bestWidth = 0;
+  for (const face of result.faceLandmarks) {
+    const w = Math.abs(face[454].x - face[234].x);
+    if (w > bestWidth) { best = face; bestWidth = w; }
+  }
+  return best;
+}
+
+// ---- near (Bryson): how close the face is -------------------------------------
+// Cheek to cheek (landmarks 234 and 454) measured in 3D, as a fraction of the
+// frame's width. Measuring in 3D means turning your head does not make you look
+// farther away, and tilting it does not either. Face width is inversely
+// proportional to distance: half the distance, double the width.
+// Nothing here is stored. The number goes out to the console and is dropped.
+
+function faceWidth(face) {
+  const w = video.videoWidth || 640;
+  const h = video.videoHeight || 480;
+  const a = face[234];
+  const b = face[454];
+  // x and z share a scale (fractions of the frame width); y is a fraction of the height.
+  return Math.hypot(b.x - a.x, ((b.y - a.y) * h) / w, b.z - a.z);
+}
+
+// near tuning. Widths are the 3D cheek-to-cheek number the console prints (step 1),
+// as a fraction of the frame width. On a laptop webcam about 65 degrees wide:
+//   NEAR_FAR   0.10 is about 1.2 m away or farther: reads 0
+//   NEAR_CLOSE 0.36 is about 35 cm, a deliberate lean in: reads 1
+// Other webcams see wider or narrower. Read your own numbers from the console and
+// move these two. Every change goes in the README break log.
+const NEAR_FAR = 0.10;
+const NEAR_CLOSE = 0.36;
+const NEAR_MEDIAN = 5;   // frames in the median (about 0.17 s at 30 fps)
+const NEAR_GAP = 700;    // ms with no face before the next face counts as a new visit
+
 // Smoothing: each new reading moves the signal a fraction of the way. Higher is
 // jumpier, lower is calmer. Thresholds in table.js read the smoothed numbers.
 const SMOOTHING = 0.25;
@@ -88,7 +151,7 @@ let candidateSince = 0;
 
 function applyTable(now) {
   const rows = window.TABLE.states;
-  const winner = rows.find(row => row.when(signals));
+  const winner = rows.find(row => row.when(signals, window.sense.state));
   if (!winner || winner.name === window.sense.state) {
     candidate = null;
     return;
@@ -104,6 +167,29 @@ function applyTable(now) {
   }
 }
 
+// ---- Step 1: raw readings ----------------------------------------------------
+// Prints the raw face width to the console about four times a second. Press L to
+// turn it off and on. Only the number is printed; nothing is kept.
+
+let logging = true;
+let lastLog = 0;
+
+function logRaw(now, result) {
+  if (!logging || now - lastLog < 250) return;
+  lastLog = now;
+  const face = mainFace(result);
+  if (!face) { console.log('near raw: no face'); return; }
+  const flat = Math.abs(face[454].x - face[234].x);
+  console.log(`near raw: width3d ${faceWidth(face).toFixed(3)}   flat ${flat.toFixed(3)}   faces ${result.faceLandmarks.length}   near ${signals.near.toFixed(2)}`);
+}
+
+addEventListener('keydown', e => {
+  if (e.key.toLowerCase() === 'l') {
+    logging = !logging;
+    console.log(`near raw logging ${logging ? 'on' : 'off'}`);
+  }
+});
+
 // ---- The loop ---------------------------------------------------------------
 
 function tick() {
@@ -114,9 +200,12 @@ function tick() {
     for (const name of window.TABLE.signals) {
       const read = SIGNALS[name];
       if (!read) continue;
-      signals[name] += (clamp(read(result)) - signals[name]) * SMOOTHING;
+      const value = read(result);
+      if (value === null) continue; // a signal can say "no reading this frame"
+      signals[name] += (clamp(value) - signals[name]) * SMOOTHING;
     }
     latestScores = result.faceBlendshapes[0] ? result.faceBlendshapes[0].categories : [];
+    logRaw(now, result);
   }
   applyTable(now);
   requestAnimationFrame(tick);
@@ -139,7 +228,7 @@ async function start() {
     const options = {
       baseOptions: { modelAssetPath: MODEL, delegate: 'GPU' },
       runningMode: 'VIDEO',
-      numFaces: 1,
+      numFaces: 2, // see mainFace(): the largest face is the one that counts
       outputFaceBlendshapes: true,
     };
     try {
