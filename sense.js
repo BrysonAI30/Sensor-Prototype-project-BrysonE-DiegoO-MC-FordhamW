@@ -59,6 +59,28 @@ const SIGNALS = {
   // Partner's signal goes here (still). Read the face with mainFace(result), not
   // result.faceLandmarks[0], so both signals look at the same person.
   //   still: ...
+
+  // smile (Bryson): 0 for a resting face, 1 for a wide smile.
+  // See the SMILE_* numbers below to tune it.
+  smile: (() => {
+    const recent = [];  // last few raw readings; the middle one ignores a blink or a one-frame twitch
+    let lastSeen = -Infinity;
+    return result => {
+      if (mainFaceIndex(result) < 0) return null; // nobody in view: keep the last value, `present` says they left
+      const now = performance.now();
+      if (now - lastSeen > SMILE_GAP) recent.length = 0; // a new visit starts fresh
+      const returning = recent.length === 0;
+      lastSeen = now;
+      recent.push((score(result, 'mouthSmileLeft') + score(result, 'mouthSmileRight')) / 2);
+      if (recent.length > SMILE_MEDIAN) recent.shift();
+      const raw = [...recent].sort((a, b) => a - b)[Math.floor(recent.length / 2)];
+      // A resting mouth, and the natural upturn some faces have, score under
+      // SMILE_REST and read 0. A big smile scores SMILE_FULL or more and reads 1.
+      const value = clamp((raw - SMILE_REST) / (SMILE_FULL - SMILE_REST));
+      if (returning) signals.smile = value; // jump to the first reading, then smooth from there
+      return value;
+    };
+  })(),
 };
 
 // One of the 52 scores by name for the main face, or 0 when no face is in view.
@@ -97,6 +119,16 @@ function mainFace(result) {
 // The average of the two is the raw reading. A resting face sits near 0.0 to 0.2,
 // a real smile is 0.5 or more. Nothing here is stored: the number goes out to the
 // console and is dropped.
+
+// smile tuning, on the raw scale the console prints (press L). Starting guesses:
+//   SMILE_REST 0.20: a neutral face, even a naturally upturned one, stays under this
+//   SMILE_FULL 0.70: a real, wide smile reaches this
+// Other faces, other lighting: read the console numbers and move these two.
+// Every change goes in the README break log.
+const SMILE_REST = 0.20;
+const SMILE_FULL = 0.70;
+const SMILE_MEDIAN = 5;  // frames in the median (about 0.17 s at 30 fps)
+const SMILE_GAP = 700;   // ms with no face before the next face counts as a new visit
 
 // Smoothing: each new reading moves the signal a fraction of the way. Higher is
 // jumpier, lower is calmer. Thresholds in table.js read the smoothed numbers.
