@@ -1,22 +1,22 @@
-# Lean In
+# Thaw
 
-A full-screen page of text that is blurred from across the room and comes into focus as the visitor leans toward the screen. **Live:** https://brysonai30.github.io/Sensor-Prototype-project-BrysonE-DiegoO-MC-FordhamW/ (after the pull request is merged and Pages is on: Settings, Pages, branch `main`, folder `/ (root)`). Click Start the camera.
+A full-screen field of cold, falling snow that turns into warm, rising embers when the visitor smiles. Built on the class's Sensor Layer starter (the starter's own README follows below). This replaces the first version, Lean In (a page of text that sharpened as you leaned toward it, driven by a `near` signal), which was too plain.
 
-Built on the class's Sensor Layer starter (the starter's own README follows below).
+**Live:** https://brysonai30.github.io/Sensor-Prototype-project-BrysonE-DiegoO-MC-FordhamW/ Click Start the camera.
 
-**What it does for the person:** it gives anyone who leans in a page that sharpens under their attention, so reading it feels like being let in on something.
+**What it does for the person:** it answers a smile with warmth, so the person feels the whole screen light up for them.
 
-**What it does to the person:** it blurs the words the moment they sit back, so they have to bring their face to the screen if they want to read.
+**What it does to the person:** it leaves them in the cold until they smile, so they are nudged to put on an expression to get its attention.
 
 ## The State Table
 
 | State | Rule | Hold | What the piece does |
 |---|---|---|---|
-| `near` | face in view and `near` above 0.62 to get in; stays until it drops under 0.45 | 0.8 s | fully sharp, caption: "You leaned in. It comes into focus." |
-| `here` | face in view (`present` above 0.5) | 1 s | blur follows `near`, caption: "You are too far away to read this." |
-| `nobody` | `present` under 0.2 | 2 s | dim and as blurred as it gets, caption: "Nobody here. The page is waiting." |
+| `smiling` | face in view and `smile` above 0.5 to get in; stays until it drops under 0.25 | 0.4 s | warm: gold embers rise and circle a glow, with one burst outward as it starts. Caption: "You smiled. It warmed up." |
+| `here` | face in view (`present` above 0.5) | 0.8 s | cold snow, warming slightly as `smile` climbs. Caption: "It is cold. It is waiting for you to smile." |
+| `nobody` | `present` under 0.2 | 2 s | thin snowfall in the dark. Caption: "Nobody here. It is cold." |
 
-Signals: `present` (starter), `near` (Bryson: face width from the landmarks), `still` (partner, not built yet).
+Signals: `present` (starter), `smile` (Bryson: the average of MediaPipe's `mouthSmileLeft` and `mouthSmileRight` scores, median of 5 frames, 0.20 reads 0 and 0.70 reads 1), `still` (partner, not built yet).
 
 ## Run it locally (Mac)
 
@@ -24,7 +24,7 @@ Signals: `present` (starter), `near` (Bryson: face width from the landmarks), `s
 python3 -m http.server 8000
 ```
 
-Open http://localhost:8000 in Chrome (not the file in Finder; the camera needs a server). Click **Start the camera**. No camera? Move the mouse: left is far, right is leaning in, and leaving the window is nobody. Number keys 1, 2, 3 jump to a state. **D** shows the object, **L** turns on the console readings of face width, **V** shows the camera.
+Open http://localhost:8000 in Chrome (not the file in Finder; the camera needs a server). Click **Start the camera**. No camera? Move the mouse: left is a straight face, right is a wide smile, and leaving the window is nobody. Number keys 1, 2, 3 jump to a state. **D** shows the object, **L** turns on the console readings of the raw smile scores, **V** shows the camera.
 
 ## Plan
 
@@ -36,14 +36,14 @@ Rules from the assignment:
 - Camera track: MediaPipe Face Landmarker 1.1.1, pinned, on a plain `<video>`. No p5 in sensing. No face-api.js. Never save frames or landmarks. No network requests after the model loads. No camera images in the repo.
 - States must not flicker: hold times and hysteresis.
 
-Ownership: Bryson owns `near` (how close the face is, from face width). The partner owns `still`. Clear spots for the partner's parts are marked in `table.js`, `sense.js` and `piece.js`.
+Ownership: Bryson owns `smile` (how much the face is smiling; first version of the piece used `near`, how close the face is). The partner owns `still`. Clear spots for the partner's parts are marked in `table.js`, `sense.js` and `piece.js`.
 
 Steps:
 
-1. Live raw face-width readings in the console.
-2. Convert to a smoothed 0-1 `near` signal.
-3. State Table rule for `near` with a hold.
-4. `piece.js` responds to `near`.
+1. Live raw readings in the console (face width, later the smile scores).
+2. Convert to a smoothed 0-1 signal (`near`, later `smile`).
+3. State Table rule for it with a hold.
+4. `piece.js` responds to it.
 5. README: what the piece does for the person and to them, plus a copy of this plan.
 6. Review everything against the rules above, then deploy to GitHub Pages.
 
@@ -126,3 +126,6 @@ Every time something breaks or a threshold moves, one row.
 | 2026-10-19 | 16e96eb | Found while building the piece (not on a camera): the starter's fake sensor drove the first signal from the mouse's x, which is now `present`, so `near` could not be demoed. And on camera start it left its old signals and state behind, so the camera would have begun in `near`. | `fake-sense.js` now drives `near` from the mouse's x and runs the table's holds; `sense.js` clears signals and state when the camera starts. |
 | 2026-10-19 | 7bd157a | Found in review: the console readings of face width were on for every visitor. | Off by default; **L** turns them on for tuning. No threshold moved. |
 | 2026-10-19 | 04f276b | Found in the final check: GitHub Pages was not turned on, so the live URL returned 404. | Pages needs Settings, Pages, branch `main`, folder `/ (root)`. Nothing in the code changed. |
+| 2026-10-19 | 37b8181, b7adcbb | Switched the piece from `near` to `smile`. Nothing broken; first smile thresholds, untested on a camera. | `SMILE_REST` 0.20 (reads 0), `SMILE_FULL` 0.70 (reads 1), median of 5 frames, smoothing 0.25. `smiling` state: in above 0.5, out below 0.25, hold 0.4 s. `here` hold 0.8 s. `nobody` hold 2 s. Retune from the L console numbers on real faces. |
+| 2026-10-19 | eed2a07 | Found in a headless screenshot test (not on a camera): the cold-to-warm colour change passed through green because hue was mixed the short way from blue to orange. | Colours now mix in RGB, so the transition goes through pale gold. |
+| 2026-10-19 | eed2a07 | Found in the same test: if the first animation frame's timestamp is earlier than `performance.now()` at load, `dt` went negative and the warmth maths broke, leaving a blank canvas. | `dt` is clamped to 0 or more in `piece.js`. |

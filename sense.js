@@ -60,34 +60,32 @@ const SIGNALS = {
   // result.faceLandmarks[0], so both signals look at the same person.
   //   still: ...
 
-  // near (Bryson): 0 when the face is far or small in the frame, 1 when it is
-  // right up at the screen. See the NEAR_* numbers above to tune it.
-  near: (() => {
-    const recent = [];  // last few raw widths; the middle one ignores a single bad frame
+  // smile (Bryson): 0 for a resting face, 1 for a wide smile.
+  // See the SMILE_* numbers below to tune it.
+  smile: (() => {
+    const recent = [];  // last few raw readings; the middle one ignores a blink or a one-frame twitch
     let lastSeen = -Infinity;
     return result => {
-      const face = mainFace(result);
-      if (!face) return null; // nobody in view: keep the last value, let `present` say they left
+      if (mainFaceIndex(result) < 0) return null; // nobody in view: keep the last value, `present` says they left
       const now = performance.now();
-      if (now - lastSeen > NEAR_GAP) recent.length = 0; // a new visit starts fresh
+      if (now - lastSeen > SMILE_GAP) recent.length = 0; // a new visit starts fresh
       const returning = recent.length === 0;
       lastSeen = now;
-      recent.push(faceWidth(face));
-      if (recent.length > NEAR_MEDIAN) recent.shift();
-      const width = [...recent].sort((a, b) => a - b)[Math.floor(recent.length / 2)];
-      // Distance is 1 / width, and leaning in is felt as a change in distance, so
-      // measure on a log scale: the same lean moves the number the same amount
-      // whether you start at 1 m or at 50 cm.
-      const value = clamp(Math.log(width / NEAR_FAR) / Math.log(NEAR_CLOSE / NEAR_FAR));
-      if (returning) signals.near = value; // jump to the first reading, then smooth from there
+      recent.push((score(result, 'mouthSmileLeft') + score(result, 'mouthSmileRight')) / 2);
+      if (recent.length > SMILE_MEDIAN) recent.shift();
+      const raw = [...recent].sort((a, b) => a - b)[Math.floor(recent.length / 2)];
+      // A resting mouth, and the natural upturn some faces have, score under
+      // SMILE_REST and read 0. A big smile scores SMILE_FULL or more and reads 1.
+      const value = clamp((raw - SMILE_REST) / (SMILE_FULL - SMILE_REST));
+      if (returning) signals.smile = value; // jump to the first reading, then smooth from there
       return value;
     };
   })(),
 };
 
-// One of the 52 scores by name, or 0 when no face is in view.
+// One of the 52 scores by name for the main face, or 0 when no face is in view.
 function score(result, name) {
-  const face = result.faceBlendshapes[0];
+  const face = result.faceBlendshapes[mainFaceIndex(result)];
   if (!face) return 0;
   const found = face.categories.find(c => c.categoryName === name);
   return found ? found.score : 0;
@@ -102,42 +100,35 @@ function clamp(x) {
 // accident. Everything below reads the largest (closest) face in view, and only
 // that one. Use mainFace(result) instead of result.faceLandmarks[0] in your signal.
 
-function mainFace(result) {
-  let best = null;
+function mainFaceIndex(result) {
+  let best = -1;
   let bestWidth = 0;
-  for (const face of result.faceLandmarks) {
+  result.faceLandmarks.forEach((face, i) => {
     const w = Math.abs(face[454].x - face[234].x);
-    if (w > bestWidth) { best = face; bestWidth = w; }
-  }
+    if (w > bestWidth) { best = i; bestWidth = w; }
+  });
   return best;
 }
 
-// ---- near (Bryson): how close the face is -------------------------------------
-// Cheek to cheek (landmarks 234 and 454) measured in 3D, as a fraction of the
-// frame's width. Measuring in 3D means turning your head does not make you look
-// farther away, and tilting it does not either. Face width is inversely
-// proportional to distance: half the distance, double the width.
-// Nothing here is stored. The number goes out to the console and is dropped.
-
-function faceWidth(face) {
-  const w = video.videoWidth || 640;
-  const h = video.videoHeight || 480;
-  const a = face[234];
-  const b = face[454];
-  // x and z share a scale (fractions of the frame width); y is a fraction of the height.
-  return Math.hypot(b.x - a.x, ((b.y - a.y) * h) / w, b.z - a.z);
+function mainFace(result) {
+  return result.faceLandmarks[mainFaceIndex(result)] || null;
 }
 
-// near tuning. Widths are the 3D cheek-to-cheek number the console prints (step 1),
-// as a fraction of the frame width. On a laptop webcam about 65 degrees wide:
-//   NEAR_FAR   0.10 is about 1.2 m away or farther: reads 0
-//   NEAR_CLOSE 0.36 is about 35 cm, a deliberate lean in: reads 1
-// Other webcams see wider or narrower. Read your own numbers from the console and
-// move these two. Every change goes in the README break log.
-const NEAR_FAR = 0.10;
-const NEAR_CLOSE = 0.36;
-const NEAR_MEDIAN = 5;   // frames in the median (about 0.17 s at 30 fps)
-const NEAR_GAP = 700;    // ms with no face before the next face counts as a new visit
+// ---- smile (Bryson): how much the mouth is smiling ----------------------------
+// MediaPipe scores mouthSmileLeft and mouthSmileRight from 0 to 1 on every frame.
+// The average of the two is the raw reading. A resting face sits near 0.0 to 0.2,
+// a real smile is 0.5 or more. Nothing here is stored: the number goes out to the
+// console and is dropped.
+
+// smile tuning, on the raw scale the console prints (press L). Starting guesses:
+//   SMILE_REST 0.20: a neutral face, even a naturally upturned one, stays under this
+//   SMILE_FULL 0.70: a real, wide smile reaches this
+// Other faces, other lighting: read the console numbers and move these two.
+// Every change goes in the README break log.
+const SMILE_REST = 0.20;
+const SMILE_FULL = 0.70;
+const SMILE_MEDIAN = 5;  // frames in the median (about 0.17 s at 30 fps)
+const SMILE_GAP = 700;   // ms with no face before the next face counts as a new visit
 
 // Smoothing: each new reading moves the signal a fraction of the way. Higher is
 // jumpier, lower is calmer. Thresholds in table.js read the smoothed numbers.
@@ -167,26 +158,26 @@ function applyTable(now) {
   }
 }
 
-// ---- Step 1: raw readings ----------------------------------------------------
-// Prints the raw face width to the console about four times a second. Off by
-// default; press L to turn it on. Only the number is printed; nothing is kept.
+// ---- Raw readings ---------------------------------------------------------------
+// Prints the raw smile scores to the console about four times a second. Off by
+// default; press L to turn it on. Only the numbers are printed; nothing is kept.
 
-let logging = false; // off for visitors; press L to see the numbers while you tune
+let logging = false;
 let lastLog = 0;
 
 function logRaw(now, result) {
   if (!logging || now - lastLog < 250) return;
   lastLog = now;
-  const face = mainFace(result);
-  if (!face) { console.log('near raw: no face'); return; }
-  const flat = Math.abs(face[454].x - face[234].x);
-  console.log(`near raw: width3d ${faceWidth(face).toFixed(3)}   flat ${flat.toFixed(3)}   faces ${result.faceLandmarks.length}   near ${signals.near.toFixed(2)}`);
+  if (mainFaceIndex(result) < 0) { console.log('smile raw: no face'); return; }
+  const left = score(result, 'mouthSmileLeft');
+  const right = score(result, 'mouthSmileRight');
+  console.log(`smile raw: left ${left.toFixed(2)}   right ${right.toFixed(2)}   avg ${((left + right) / 2).toFixed(2)}   faces ${result.faceLandmarks.length}   smile ${signals.smile === undefined ? '-' : signals.smile.toFixed(2)}`);
 }
 
 addEventListener('keydown', e => {
   if (e.key.toLowerCase() === 'l') {
     logging = !logging;
-    console.log(`near raw logging ${logging ? 'on' : 'off'}`);
+    console.log(`smile raw logging ${logging ? 'on' : 'off'}`);
   }
 });
 
@@ -204,7 +195,8 @@ function tick() {
       if (value === null) continue; // a signal can say "no reading this frame"
       signals[name] += (clamp(value) - signals[name]) * SMOOTHING;
     }
-    latestScores = result.faceBlendshapes[0] ? result.faceBlendshapes[0].categories : [];
+    const main = result.faceBlendshapes[mainFaceIndex(result)];
+    latestScores = main ? main.categories : [];
     logRaw(now, result);
   }
   applyTable(now);

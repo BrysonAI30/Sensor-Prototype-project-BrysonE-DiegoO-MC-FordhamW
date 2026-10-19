@@ -16,21 +16,24 @@
 // the state back and forth.
 
 window.TABLE = {
-  // present: a face is in view (the starter's). near: how close it is (Bryson).
+  // present: a face is in view (the starter's). smile: how much it is smiling (Bryson).
   // still: PARTNER, add 'still' here when its function exists in sense.js SIGNALS.
-  signals: ['present', 'near'],
+  signals: ['present', 'smile'],
 
   states: [
-    // near: lean in past 0.62 for 0.8 s to get in; it lasts until near falls under 0.45.
-    { name: 'near',   when: (s, now) => s.present > 0.5 && s.near > (now === 'near' ? 0.45 : 0.62), hold: 0.8 },
+    // smiling: smile past 0.5 for 0.4 s to get in; it lasts until smile falls under 0.25.
+    // Short to get in so the answer feels immediate, and the wide band to stay in
+    // means a smile that wavers at the edges does not drop out.
+    { name: 'smiling', when: (s, now) => s.present > 0.5 && s.smile > (now === 'smiling' ? 0.25 : 0.5), hold: 0.4 },
 
     // PARTNER: rows that use `still` go here, above 'here' (the first true row wins).
 
-    // here: a face is in view but not leaning in. Present gets in above 0.5 and
-    // is only lost under 0.2, the gap between is the hysteresis.
-    { name: 'here',   when: s => s.present > 0.5,  hold: 1 },
+    // here: a face is in view, not smiling. Present gets in above 0.5 and
+    // is only lost under 0.2, the gap between is the hysteresis. The longer hold
+    // is the piece letting go of the warmth slowly.
+    { name: 'here',    when: s => s.present > 0.5, hold: 0.8 },
 
     // nobody: slow to say, so a turned head or a blink of lost tracking is not a departure.
-    { name: 'nobody', when: s => s.present < 0.2,  hold: 2 },
+    { name: 'nobody',  when: s => s.present < 0.2, hold: 2 },
   ],
 };
