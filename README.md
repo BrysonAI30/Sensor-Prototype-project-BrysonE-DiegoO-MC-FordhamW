@@ -70,3 +70,5 @@ Every time something breaks or a threshold moves, one row.
 
 | Date | Commit | What broke | What changed |
 |---|---|---|---|
+| 2026-10-19 | 06d965c | Nothing broken yet. First thresholds, untested on a camera. | `NEAR_FAR` 0.10 (reads 0), `NEAR_CLOSE` 0.36 (reads 1), median of 5 frames, smoothing 0.25. Starting guesses from a 65 degree webcam; retune from the console numbers. |
+| 2026-10-19 | 6f3e2a4 | Nothing broken yet. First State Table thresholds, untested on a camera. | `near` state: in above 0.62, out below 0.45, hold 0.8 s. `here`: hold 1 s. `nobody`: present under 0.2, hold 2 s. |
