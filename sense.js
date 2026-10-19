@@ -151,7 +151,7 @@ let candidateSince = 0;
 
 function applyTable(now) {
   const rows = window.TABLE.states;
-  const winner = rows.find(row => row.when(signals));
+  const winner = rows.find(row => row.when(signals, window.sense.state));
   if (!winner || winner.name === window.sense.state) {
     candidate = null;
     return;
