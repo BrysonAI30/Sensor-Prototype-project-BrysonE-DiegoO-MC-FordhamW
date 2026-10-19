@@ -1,4 +1,55 @@
-# Sensor Layer starter
+# Lean In
+
+A full-screen page of text that is blurred from across the room and comes into focus as the visitor leans toward the screen. **Live:** https://brysonai30.github.io/Sensor-Prototype-project-BrysonE-DiegoO-MC-FordhamW/ (after the pull request is merged and Pages is on: Settings, Pages, branch `main`, folder `/ (root)`). Click Start the camera.
+
+Built on the class's Sensor Layer starter (the starter's own README follows below).
+
+**What it does for the person:** it gives anyone who leans in a page that sharpens under their attention, so reading it feels like being let in on something.
+
+**What it does to the person:** it blurs the words the moment they sit back, so they have to bring their face to the screen if they want to read.
+
+## The State Table
+
+| State | Rule | Hold | What the piece does |
+|---|---|---|---|
+| `near` | face in view and `near` above 0.62 to get in; stays until it drops under 0.45 | 0.8 s | fully sharp, caption: "You leaned in. It comes into focus." |
+| `here` | face in view (`present` above 0.5) | 1 s | blur follows `near`, caption: "You are too far away to read this." |
+| `nobody` | `present` under 0.2 | 2 s | dim and as blurred as it gets, caption: "Nobody here. The page is waiting." |
+
+Signals: `present` (starter), `near` (Bryson: face width from the landmarks), `still` (partner, not built yet).
+
+## Run it locally (Mac)
+
+```
+python3 -m http.server 8000
+```
+
+Open http://localhost:8000 in Chrome (not the file in Finder; the camera needs a server). Click **Start the camera**. No camera? Move the mouse: left is far, right is leaning in, and leaving the window is nobody. Number keys 1, 2, 3 jump to a state. **D** shows the object, **L** turns on the console readings of face width, **V** shows the camera.
+
+## Plan
+
+Rules from the assignment:
+
+- `sense.js` reads the sensor, makes signals (0 to 1), applies our State Table, writes `window.sense = { state, signals, since }` (`since` = `performance.now()` when the state began). Exactly that shape.
+- `fake-sense.js` writes the same object with no sensor (number keys set state, mouse sets signals). It loads first.
+- `piece.js` reads `window.sense` in its own `requestAnimationFrame` loop.
+- Camera track: MediaPipe Face Landmarker 1.1.1, pinned, on a plain `<video>`. No p5 in sensing. No face-api.js. Never save frames or landmarks. No network requests after the model loads. No camera images in the repo.
+- States must not flicker: hold times and hysteresis.
+
+Ownership: Bryson owns `near` (how close the face is, from face width). The partner owns `still`. Clear spots for the partner's parts are marked in `table.js`, `sense.js` and `piece.js`.
+
+Steps:
+
+1. Live raw face-width readings in the console.
+2. Convert to a smoothed 0-1 `near` signal.
+3. State Table rule for `near` with a hold.
+4. `piece.js` responds to `near`.
+5. README: what the piece does for the person and to them, plus a copy of this plan.
+6. Review everything against the rules above, then deploy to GitHub Pages.
+
+Graded on Legibility (a stranger understands what it noticed with no explanation), Care (no flickering on faces that aren't mine) and Position (the piece matches this README). Tune thresholds for different distances and lighting.
+
+---
 
 Computer Coding Studio, fall 2026. The camera, the model, one worked signal and a fake sensor, so your pair starts from a piece that already runs.
 

@@ -168,10 +168,10 @@ function applyTable(now) {
 }
 
 // ---- Step 1: raw readings ----------------------------------------------------
-// Prints the raw face width to the console about four times a second. Press L to
-// turn it off and on. Only the number is printed; nothing is kept.
+// Prints the raw face width to the console about four times a second. Off by
+// default; press L to turn it on. Only the number is printed; nothing is kept.
 
-let logging = true;
+let logging = false; // off for visitors; press L to see the numbers while you tune
 let lastLog = 0;
 
 function logRaw(now, result) {
@@ -243,6 +243,10 @@ async function start() {
     for (const name of window.TABLE.signals) {
       if (!SIGNALS[name]) console.warn(`table.js names a signal "${name}" that sense.js does not read yet.`);
     }
+    // Start clean: whatever the fake sensor left behind is not the camera's reading.
+    for (const name in signals) signals[name] = 0;
+    window.sense.state = window.TABLE.states[window.TABLE.states.length - 1].name;
+    window.sense.since = performance.now();
     window.senseLive = true;
     failed = false;
     button.remove();
