@@ -168,10 +168,10 @@ function applyTable(now) {
 }
 
 // ---- Step 1: raw readings ----------------------------------------------------
-// Prints the raw face width to the console about four times a second. Press L to
-// turn it off and on. Only the number is printed; nothing is kept.
+// Prints the raw face width to the console about four times a second. Off by
+// default; press L to turn it on. Only the number is printed; nothing is kept.
 
-let logging = true;
+let logging = false; // off for visitors; press L to see the numbers while you tune
 let lastLog = 0;
 
 function logRaw(now, result) {

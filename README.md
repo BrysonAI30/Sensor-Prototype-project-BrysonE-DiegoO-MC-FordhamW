@@ -1,6 +1,8 @@
 # Lean In
 
-A full-screen page of text that is blurred from across the room and comes into focus as the visitor leans toward the screen. Built on the class's Sensor Layer starter (the starter's own README follows below).
+A full-screen page of text that is blurred from across the room and comes into focus as the visitor leans toward the screen. **Live:** https://brysonai30.github.io/Sensor-Prototype-project-BrysonE-DiegoO-MC-FordhamW/ (after the pull request is merged and Pages is on: Settings, Pages, branch `main`, folder `/ (root)`). Click Start the camera.
+
+Built on the class's Sensor Layer starter (the starter's own README follows below).
 
 **What it does for the person:** it gives anyone who leans in a page that sharpens under their attention, so reading it feels like being let in on something.
 
@@ -22,7 +24,7 @@ Signals: `present` (starter), `near` (Bryson: face width from the landmarks), `s
 python3 -m http.server 8000
 ```
 
-Open http://localhost:8000 in Chrome (not the file in Finder; the camera needs a server). Click **Start the camera**. No camera? Move the mouse: left is far, right is leaning in, and leaving the window is nobody. Number keys 1, 2, 3 jump to a state. **D** shows the object, **L** toggles the console readings of face width, **V** shows the camera.
+Open http://localhost:8000 in Chrome (not the file in Finder; the camera needs a server). Click **Start the camera**. No camera? Move the mouse: left is far, right is leaning in, and leaving the window is nobody. Number keys 1, 2, 3 jump to a state. **D** shows the object, **L** turns on the console readings of face width, **V** shows the camera.
 
 ## Plan
 
