@@ -76,6 +76,37 @@ function clamp(x) {
   return Math.min(1, Math.max(0, x));
 }
 
+// ---- Shared by both partners: which face is "the" face ------------------------
+// The model looks for two faces so a bystander does not steal the reading by
+// accident. Everything below reads the largest (closest) face in view, and only
+// that one. Use mainFace(result) instead of result.faceLandmarks[0] in your signal.
+
+function mainFace(result) {
+  let best = null;
+  let bestWidth = 0;
+  for (const face of result.faceLandmarks) {
+    const w = Math.abs(face[454].x - face[234].x);
+    if (w > bestWidth) { best = face; bestWidth = w; }
+  }
+  return best;
+}
+
+// ---- near (Bryson): how close the face is -------------------------------------
+// Cheek to cheek (landmarks 234 and 454) measured in 3D, as a fraction of the
+// frame's width. Measuring in 3D means turning your head does not make you look
+// farther away, and tilting it does not either. Face width is inversely
+// proportional to distance: half the distance, double the width.
+// Nothing here is stored. The number goes out to the console and is dropped.
+
+function faceWidth(face) {
+  const w = video.videoWidth || 640;
+  const h = video.videoHeight || 480;
+  const a = face[234];
+  const b = face[454];
+  // x and z share a scale (fractions of the frame width); y is a fraction of the height.
+  return Math.hypot(b.x - a.x, ((b.y - a.y) * h) / w, b.z - a.z);
+}
+
 // Smoothing: each new reading moves the signal a fraction of the way. Higher is
 // jumpier, lower is calmer. Thresholds in table.js read the smoothed numbers.
 const SMOOTHING = 0.25;
@@ -104,6 +135,29 @@ function applyTable(now) {
   }
 }
 
+// ---- Step 1: raw readings ----------------------------------------------------
+// Prints the raw face width to the console about four times a second. Press L to
+// turn it off and on. Only the number is printed; nothing is kept.
+
+let logging = true;
+let lastLog = 0;
+
+function logRaw(now, result) {
+  if (!logging || now - lastLog < 250) return;
+  lastLog = now;
+  const face = mainFace(result);
+  if (!face) { console.log('near raw: no face'); return; }
+  const flat = Math.abs(face[454].x - face[234].x);
+  console.log(`near raw: width3d ${faceWidth(face).toFixed(3)}   flat ${flat.toFixed(3)}   faces ${result.faceLandmarks.length}`);
+}
+
+addEventListener('keydown', e => {
+  if (e.key.toLowerCase() === 'l') {
+    logging = !logging;
+    console.log(`near raw logging ${logging ? 'on' : 'off'}`);
+  }
+});
+
 // ---- The loop ---------------------------------------------------------------
 
 function tick() {
@@ -117,6 +171,7 @@ function tick() {
       signals[name] += (clamp(read(result)) - signals[name]) * SMOOTHING;
     }
     latestScores = result.faceBlendshapes[0] ? result.faceBlendshapes[0].categories : [];
+    logRaw(now, result);
   }
   applyTable(now);
   requestAnimationFrame(tick);
@@ -139,7 +194,7 @@ async function start() {
     const options = {
       baseOptions: { modelAssetPath: MODEL, delegate: 'GPU' },
       runningMode: 'VIDEO',
-      numFaces: 1,
+      numFaces: 2, // see mainFace(): the largest face is the one that counts
       outputFaceBlendshapes: true,
     };
     try {
