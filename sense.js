@@ -243,6 +243,10 @@ async function start() {
     for (const name of window.TABLE.signals) {
       if (!SIGNALS[name]) console.warn(`table.js names a signal "${name}" that sense.js does not read yet.`);
     }
+    // Start clean: whatever the fake sensor left behind is not the camera's reading.
+    for (const name in signals) signals[name] = 0;
+    window.sense.state = window.TABLE.states[window.TABLE.states.length - 1].name;
+    window.sense.since = performance.now();
     window.senseLive = true;
     failed = false;
     button.remove();

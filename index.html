@@ -3,17 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sensor Layer starter</title>
+  <title>Lean In</title>
   <link rel="icon" href="data:,">
   <style>
     html, body { margin: 0; height: 100%; background: #0b0b0d; overflow: hidden; }
-    #piece { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+    body { color: #f2efe9; font-family: Georgia, 'Times New Roman', serif; }
+    #page { position: fixed; inset: 0; display: grid; place-items: center; padding: 0 7vw 8vh; box-sizing: border-box; }
+    #text { margin: 0; max-width: 62em; font-size: min(3.4vw, 5.6vh); line-height: 1.5; text-wrap: pretty;
+            will-change: filter, opacity, transform; }
+    #caption { position: fixed; left: 0; right: 0; bottom: 5vh; margin: 0; text-align: center;
+               font: italic min(1.9vw, 3.2vh)/1.3 Georgia, serif; letter-spacing: 0.02em; color: #f2efe9; }
     #camera { position: fixed; right: 12px; bottom: 12px; width: 200px; transform: scaleX(-1);
               border-radius: 4px; opacity: 0; pointer-events: none; }
     #camera.shown { opacity: 1; }
     #start { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
              font: 16px/1.2 system-ui, sans-serif; padding: 12px 20px; border-radius: 6px;
-             border: 1px solid #f2efe9; background: transparent; color: #f2efe9; cursor: pointer; }
+             border: 1px solid #f2efe9; background: #0b0b0d; color: #f2efe9; cursor: pointer; }
+    #start { z-index: 2; }
     #start:disabled { opacity: 0.6; cursor: wait; }
     pre { position: fixed; margin: 0; padding: 10px 12px; font: 12px/1.45 ui-monospace, Menlo, monospace;
           color: #f2efe9; background: rgba(0, 0, 0, 0.7); border-radius: 4px; white-space: pre; }
@@ -22,7 +28,10 @@
   </style>
 </head>
 <body>
-  <canvas id="piece"></canvas>
+  <main id="page">
+    <p id="text">Most of what is written is not meant to be read from across the room. It waits. A page lets a stranger pass, and it lets a friend lean over its shoulder. The closer you come, the more the words agree to be words: the edges settle, the letters stop swimming, and a sentence you could not make out turns out to have been addressed to you the whole time.</p>
+  </main>
+  <p id="caption"></p>
   <video id="camera" playsinline muted></video>
   <button id="start">Start the camera</button>
   <pre id="readout" hidden></pre>
